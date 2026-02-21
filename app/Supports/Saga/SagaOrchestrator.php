@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Supports\Saga;
 
+use App\Models\SagaFailureLog;
+use Illuminate\Support\Str;
 use Throwable;
 
 final class SagaOrchestrator
@@ -25,17 +27,42 @@ final class SagaOrchestrator
 
         /** @var array<int, SagaStepInterface> $executedSteps */
         $executedSteps = [];
+        $failedStep = null;
 
         try {
             foreach ($this->steps as $step) {
+                $failedStep = $step;
                 $instance = app($step);
                 $instance->run($context);
                 $executedSteps[] = $instance;
             }
         } catch (Throwable $exception) {
+            $compensatedSteps = [];
+            $compensationFailures = [];
+
             foreach (array_reverse($executedSteps) as $executedStep) {
-                $executedStep->rollback($context);
+                try {
+                    $executedStep->rollback($context);
+                    $compensatedSteps[] = $executedStep::class;
+                } catch (Throwable $rollbackException) {
+                    $compensationFailures[] = [
+                        'step' => $executedStep::class,
+                        'exception_class' => $rollbackException::class,
+                        'message' => $rollbackException->getMessage(),
+                    ];
+                }
             }
+
+            SagaFailureLog::create([
+                'saga_id' => (string) Str::uuid(),
+                'failed_step' => $failedStep,
+                'exception_class' => $exception::class,
+                'exception_message' => $exception->getMessage(),
+                'executed_steps' => array_map(fn (SagaStepInterface $s): string => $s::class, $executedSteps),
+                'compensated_steps' => $compensatedSteps,
+                'compensation_failures' => $compensationFailures,
+                'context_snapshot' => $context->toArray(),
+            ]);
 
             throw $exception;
         }

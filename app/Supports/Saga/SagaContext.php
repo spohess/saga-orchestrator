@@ -29,4 +29,16 @@ final class SagaContext
     {
         return array_key_exists($key, $this->data);
     }
+
+    /** @return array<string, mixed> */
+    public function toArray(): array
+    {
+        return array_map(function (mixed $value): mixed {
+            if ($value instanceof \Illuminate\Database\Eloquent\Model) {
+                return $value->toArray();
+            }
+
+            return $value;
+        }, $this->data);
+    }
 }

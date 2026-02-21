@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Supports\Saga;
 
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
+
 final class SagaContext
 {
     /** @var array<string, mixed> */
@@ -11,18 +14,20 @@ final class SagaContext
 
     public function set(string $key, mixed $value): void
     {
-        $this->data[$key] = $value;
+        Arr::set($this->data, $key, $value);
     }
 
     /** @param array<string, mixed> $data */
     public function setFromArray(array $data): void
     {
-        $this->data = array_merge($this->data, $data);
+        foreach ($data as $key => $value) {
+            $this->set($key, $value);
+        }
     }
 
     public function get(string $key, mixed $default = null): mixed
     {
-        return $this->data[$key] ?? $default;
+        return Arr::get($this->data, $key, $default);
     }
 
     public function has(string $key): bool
@@ -34,7 +39,7 @@ final class SagaContext
     public function toArray(): array
     {
         return array_map(function (mixed $value): mixed {
-            if ($value instanceof \Illuminate\Database\Eloquent\Model) {
+            if ($value instanceof Model) {
                 return $value->toArray();
             }
 

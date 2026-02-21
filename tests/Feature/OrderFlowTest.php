@@ -1,13 +1,17 @@
 <?php
 
-use App\Models\Order;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
+
+beforeEach(function () {
+    Sleep::fake();
+});
 
 it('creates a confirmed order when all steps succeed', function () {
     Http::fake([
-        'external-service.example.com/subscribe' => Http::response([
-            'subscription_id' => 'sub_123',
+        'external-service.example.com/pay' => Http::response([
+            'amount' => 'sub_123',
         ], 200),
     ]);
 
@@ -27,7 +31,7 @@ it('creates a confirmed order when all steps succeed', function () {
             'quantity' => 1,
             'total_price' => 9900,
             'status' => 'confirmed',
-            'external_subscription_id' => 'sub_123',
+            'amount' => 'sub_123',
         ]);
 
     $this->assertDatabaseHas('orders', [
@@ -38,7 +42,7 @@ it('creates a confirmed order when all steps succeed', function () {
 
 it('rolls back the order to failed when the external service fails', function () {
     Http::fake([
-        'external-service.example.com/subscribe' => Http::response([], 500),
+        'external-service.example.com/pay' => Http::response([], 500),
     ]);
 
     $response = $this->postJson('/api/orders', [
@@ -57,12 +61,12 @@ it('rolls back the order to failed when the external service fails', function ()
     ]);
 });
 
-it('calls the external service deactivate endpoint on rollback', function () {
+it('calls the external service refund endpoint on rollback', function () {
     Http::fake([
-        'external-service.example.com/subscribe' => Http::response([
-            'subscription_id' => 'sub_456',
+        'external-service.example.com/pay' => Http::response([
+            'amount' => 'sub_456',
         ], 200),
-        'external-service.example.com/deactivate' => Http::response([], 200),
+        'external-service.example.com/refund' => Http::response([], 200),
     ]);
 
     // Bind a ConfirmOrderStep that throws to force rollback after subscription
@@ -82,8 +86,8 @@ it('calls the external service deactivate endpoint on rollback', function () {
     $response->assertStatus(500);
 
     Http::assertSent(function (Request $request) {
-        return $request->url() === 'https://external-service.example.com/deactivate'
-            && $request['subscription_id'] === 'sub_456';
+        return $request->url() === 'https://external-service.example.com/refund'
+            && $request['amount'] === 'sub_456';
     });
 });
 

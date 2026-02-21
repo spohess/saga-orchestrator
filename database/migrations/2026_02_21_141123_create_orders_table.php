@@ -19,7 +19,7 @@ return new class extends Migration
             $table->unsignedInteger('quantity');
             $table->unsignedInteger('total_price');
             $table->string('status')->default('pending');
-            $table->string('external_subscription_id')->nullable();
+            $table->string('amount')->nullable();
             $table->timestamps();
         });
     }

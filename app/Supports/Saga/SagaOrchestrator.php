@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Supports\Saga;
 
 use App\Models\SagaFailureLog;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 use Throwable;
@@ -36,7 +37,7 @@ final class SagaOrchestrator
 
         try {
             foreach ($this->steps as $stepConfig) {
-                $failedStep = $stepConfig['step'];
+                $failedStep = Arr::get($stepConfig, 'step');
                 $executedSteps[] = $this->runWithRetries($stepConfig, $context);
             }
         } catch (Throwable $exception) {
@@ -76,15 +77,15 @@ final class SagaOrchestrator
     /** @param array{step: class-string<SagaStepInterface>, retries: int, sleep: int} $stepConfig */
     private function runWithRetries(array $stepConfig, SagaContext $context): SagaStepInterface
     {
-        $attempts = $stepConfig['retries'] + 1;
+        $attempts = Arr::get($stepConfig, 'retries', 0) + 1;
 
         for ($attempt = 1; $attempt <= $attempts; $attempt++) {
             try {
-                if ($attempt > 1) {
-                    Sleep::for($stepConfig['sleep'])->seconds();
+                if ($attempt > 1 && Arr::get($stepConfig, 'sleep', 0) > 0) {
+                    Sleep::for(Arr::get($stepConfig, 'sleep', 0))->seconds();
                 }
 
-                $instance = app($stepConfig['step']);
+                $instance = app(Arr::get($stepConfig, 'step'));
                 $instance->run($context);
 
                 return $instance;

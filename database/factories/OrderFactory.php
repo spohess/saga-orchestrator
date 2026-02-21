@@ -28,7 +28,7 @@ class OrderFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'status' => 'confirmed',
-            'external_subscription_id' => fake()->uuid(),
+            'amount' => fake()->uuid(),
         ]);
     }
 

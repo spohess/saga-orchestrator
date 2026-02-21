@@ -94,5 +94,7 @@ final class SagaOrchestrator
                 }
             }
         }
+
+        throw $exception;
     }
 }

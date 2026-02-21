@@ -5,18 +5,23 @@ declare(strict_types=1);
 namespace App\Supports\Saga;
 
 use App\Models\SagaFailureLog;
+use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 use Throwable;
 
 final class SagaOrchestrator
 {
-    /** @var array<int, class-string<SagaStepInterface>> */
+    /** @var array<int, array{step: class-string<SagaStepInterface>, retries: int, sleep: int}> */
     private array $steps = [];
 
     /** @param class-string<SagaStepInterface> $step */
-    public function addStep(string $step): self
+    public function addStep(string $step, int $retries = 0, int $sleep = 0): self
     {
-        $this->steps[] = $step;
+        $this->steps[] = [
+            'step' => $step,
+            'retries' => $retries,
+            'sleep' => $sleep,
+        ];
 
         return $this;
     }
@@ -30,11 +35,9 @@ final class SagaOrchestrator
         $failedStep = null;
 
         try {
-            foreach ($this->steps as $step) {
-                $failedStep = $step;
-                $instance = app($step);
-                $instance->run($context);
-                $executedSteps[] = $instance;
+            foreach ($this->steps as $stepConfig) {
+                $failedStep = $stepConfig['step'];
+                $executedSteps[] = $this->runWithRetries($stepConfig, $context);
             }
         } catch (Throwable $exception) {
             $compensatedSteps = [];
@@ -68,5 +71,28 @@ final class SagaOrchestrator
         }
 
         return $context;
+    }
+
+    /** @param array{step: class-string<SagaStepInterface>, retries: int, sleep: int} $stepConfig */
+    private function runWithRetries(array $stepConfig, SagaContext $context): SagaStepInterface
+    {
+        $attempts = $stepConfig['retries'] + 1;
+
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            try {
+                if ($attempt > 1) {
+                    Sleep::for($stepConfig['sleep'])->seconds();
+                }
+
+                $instance = app($stepConfig['step']);
+                $instance->run($context);
+
+                return $instance;
+            } catch (Throwable $exception) {
+                if ($attempt === $attempts) {
+                    throw $exception;
+                }
+            }
+        }
     }
 }

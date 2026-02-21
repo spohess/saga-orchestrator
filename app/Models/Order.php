@@ -17,6 +17,6 @@ class Order extends Model
         'quantity',
         'total_price',
         'status',
-        'external_subscription_id',
+        'amount',
     ];
 }

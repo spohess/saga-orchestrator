@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domains\Order\Steps\ConfirmOrderStep;
 use App\Domains\Order\Steps\CreateOrderStep;
-use App\Domains\Order\Steps\SubscribeExternalServiceStep;
+use App\Domains\Order\Steps\ProcessPaymentStep;
 use App\Http\Requests\StoreOrderRequest;
 use App\Models\Order;
 use App\Supports\Saga\SagaContext;
@@ -23,7 +23,7 @@ class OrderController extends Controller
         $this->context->setFromArray($request->validated());
 
         $this->orchestrator->addStep(CreateOrderStep::class)
-            ->addStep(SubscribeExternalServiceStep::class)
+            ->addStep(ProcessPaymentStep::class, retries: 3, sleep: 10)
             ->addStep(ConfirmOrderStep::class)
             ->execute($this->context);
 

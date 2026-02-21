@@ -8,10 +8,14 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 use Tests\Fixtures\FailingStep;
 
+beforeEach(function () {
+    Sleep::fake();
+});
+
 it('does not create a failure log when all steps succeed', function () {
     Http::fake([
-        'external-service.example.com/subscribe' => Http::response([
-            'subscription_id' => 'sub_123',
+        'external-service.example.com/pay' => Http::response([
+            'amount' => 'sub_123',
         ], 200),
     ]);
 
@@ -28,7 +32,7 @@ it('does not create a failure log when all steps succeed', function () {
 
 it('creates a failure log when a step fails', function () {
     Http::fake([
-        'external-service.example.com/subscribe' => Http::response([], 500),
+        'external-service.example.com/pay' => Http::response([], 500),
     ]);
 
     $this->postJson('/api/orders', [
@@ -43,9 +47,9 @@ it('creates a failure log when a step fails', function () {
 
     expect($log)->not->toBeNull()
         ->and($log->saga_id)->toBeUuid()
-        ->and($log->failed_step)->toBe(\App\Domains\Order\Steps\SubscribeExternalServiceStep::class)
+        ->and($log->failed_step)->toBe(\App\Domains\Order\Steps\ProcessPaymentStep::class)
         ->and($log->exception_class)->toBe(RuntimeException::class)
-        ->and($log->exception_message)->toBe('External service subscription failed.')
+        ->and($log->exception_message)->toBe('External service payment failed.')
         ->and($log->executed_steps)->toBe([
             \App\Domains\Order\Steps\CreateOrderStep::class,
         ])
@@ -57,7 +61,7 @@ it('creates a failure log when a step fails', function () {
 
 it('logs the context snapshot at time of failure', function () {
     Http::fake([
-        'external-service.example.com/subscribe' => Http::response([], 500),
+        'external-service.example.com/pay' => Http::response([], 500),
     ]);
 
     $this->postJson('/api/orders', [
@@ -113,8 +117,6 @@ it('still throws the original exception after logging', function () {
 })->throws(RuntimeException::class, 'Step failed intentionally.');
 
 it('retries a step before triggering compensation', function () {
-    Sleep::fake();
-
     $callCount = 0;
 
     $flakeyStep = new class($callCount) implements SagaStepInterface
@@ -154,8 +156,6 @@ it('retries a step before triggering compensation', function () {
 });
 
 it('triggers compensation after all retries are exhausted', function () {
-    Sleep::fake();
-
     $orchestrator = new SagaOrchestrator;
     $orchestrator->addStep(FailingStep::class, retries: 2, sleep: 1);
 
@@ -174,8 +174,6 @@ it('triggers compensation after all retries are exhausted', function () {
 });
 
 it('does not sleep on the first attempt', function () {
-    Sleep::fake();
-
     $orchestrator = new SagaOrchestrator;
     $orchestrator->addStep(FailingStep::class, retries: 0, sleep: 5);
 

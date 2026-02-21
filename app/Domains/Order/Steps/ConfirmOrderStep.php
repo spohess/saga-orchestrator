@@ -20,6 +20,9 @@ final class ConfirmOrderStep implements SagaStepInterface
 
     public function rollback(SagaContext $context): void
     {
-        //
+        /** @var Order $order */
+        $order = $context->get('order');
+
+        $order->update(['status' => 'failed']);
     }
 }

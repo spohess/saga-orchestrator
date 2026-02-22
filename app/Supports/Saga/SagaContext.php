@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace App\Supports\Saga;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 
 final class SagaContext
 {
     /** @var array<string, mixed> */
     private array $data = [];
+
+    /** @param class-string<SagaContextDTOInterface> $dtoClass */
+    public function __construct(
+        private readonly string $dtoClass,
+    ) {}
 
     public function set(string $key, mixed $value): void
     {
@@ -35,15 +39,8 @@ final class SagaContext
         return array_key_exists($key, $this->data);
     }
 
-    /** @return array<string, mixed> */
-    public function toArray(): array
+    public function toDTO(): SagaContextDTOInterface
     {
-        return array_map(function (mixed $value): mixed {
-            if ($value instanceof Model) {
-                return $value->toArray();
-            }
-
-            return $value;
-        }, $this->data);
+        return ($this->dtoClass)::fromContext($this);
     }
 }

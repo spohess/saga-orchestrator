@@ -27,9 +27,8 @@ final class SagaOrchestrator
         return $this;
     }
 
-    public function execute(?SagaContext $context = null): SagaContext
+    public function execute(SagaContext $context): SagaContextDTOInterface
     {
-        $context ??= new SagaContext;
 
         /** @var array<int, SagaStepInterface> $executedSteps */
         $executedSteps = [];
@@ -65,13 +64,13 @@ final class SagaOrchestrator
                 'executed_steps' => array_map(fn (SagaStepInterface $s): string => $s::class, $executedSteps),
                 'compensated_steps' => $compensatedSteps,
                 'compensation_failures' => $compensationFailures,
-                'context_snapshot' => $context->toArray(),
+                'context_snapshot' => $context->toDTO()->toSnapshot(),
             ]);
 
             throw $exception;
         }
 
-        return $context;
+        return $context->toDTO();
     }
 
     /** @param array{step: class-string<SagaStepInterface>, retries: int, sleep: int} $stepConfig */

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\SagaFailureLog;
+use App\Supports\Saga\GenericSagaContextData;
 use App\Supports\Saga\SagaContext;
 use App\Supports\Saga\SagaOrchestrator;
 use App\Supports\Saga\SagaStepInterface;
@@ -93,12 +94,14 @@ it('logs compensation failures when rollback itself fails', function () {
 
     $this->app->bind('step.failing-rollback', fn () => $failingRollbackStep);
 
+    $context = new SagaContext(GenericSagaContextData::class);
+
     $orchestrator = new SagaOrchestrator;
     $orchestrator->addStep('step.failing-rollback');
     $orchestrator->addStep(FailingStep::class);
 
     try {
-        $orchestrator->execute();
+        $orchestrator->execute($context);
     } catch (RuntimeException) {
         // expected
     }
@@ -110,10 +113,12 @@ it('logs compensation failures when rollback itself fails', function () {
 });
 
 it('still throws the original exception after logging', function () {
+    $context = new SagaContext(GenericSagaContextData::class);
+
     $orchestrator = new SagaOrchestrator;
     $orchestrator->addStep(FailingStep::class);
 
-    $orchestrator->execute();
+    $orchestrator->execute($context);
 })->throws(RuntimeException::class, 'Step failed intentionally.');
 
 it('retries a step before triggering compensation', function () {
@@ -139,13 +144,15 @@ it('retries a step before triggering compensation', function () {
 
     $this->app->bind('step.flakey', fn () => $flakeyStep);
 
-    $orchestrator = new SagaOrchestrator;
-    $context = $orchestrator
+    $context = new SagaContext(GenericSagaContextData::class);
+
+    /** @var GenericSagaContextData $dto */
+    $dto = (new SagaOrchestrator)
         ->addStep('step.flakey', retries: 3, sleep: 2)
-        ->execute();
+        ->execute($context);
 
     expect($callCount)->toBe(3)
-        ->and($context->get('flakey_result'))->toBe('ok')
+        ->and($dto->get('flakey_result'))->toBe('ok')
         ->and(SagaFailureLog::count())->toBe(0);
 
     Sleep::assertSleptTimes(2);
@@ -156,11 +163,13 @@ it('retries a step before triggering compensation', function () {
 });
 
 it('triggers compensation after all retries are exhausted', function () {
+    $context = new SagaContext(GenericSagaContextData::class);
+
     $orchestrator = new SagaOrchestrator;
     $orchestrator->addStep(FailingStep::class, retries: 2, sleep: 1);
 
     try {
-        $orchestrator->execute();
+        $orchestrator->execute($context);
     } catch (RuntimeException) {
         // expected
     }
@@ -174,11 +183,13 @@ it('triggers compensation after all retries are exhausted', function () {
 });
 
 it('does not sleep on the first attempt', function () {
+    $context = new SagaContext(GenericSagaContextData::class);
+
     $orchestrator = new SagaOrchestrator;
     $orchestrator->addStep(FailingStep::class, retries: 0, sleep: 5);
 
     try {
-        $orchestrator->execute();
+        $orchestrator->execute($context);
     } catch (RuntimeException) {
         // expected
     }

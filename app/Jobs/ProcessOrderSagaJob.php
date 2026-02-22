@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Jobs;
 
+use App\Domains\Order\DTOs\OrderSagaContextData;
 use App\Domains\Order\Steps\ConfirmOrderStep;
 use App\Domains\Order\Steps\CreateOrderStep;
 use App\Domains\Order\Steps\ProcessPaymentStep;
@@ -27,11 +30,13 @@ class ProcessOrderSagaJob implements ShouldQueue
         private array $orderData,
     ) {}
 
-    public function handle(SagaOrchestrator $orchestrator, SagaContext $context): void
+    public function handle(SagaOrchestrator $orchestrator): void
     {
+        $context = new SagaContext(OrderSagaContextData::class);
         $context->setFromArray($this->orderData);
 
-        $orchestrator->addStep(CreateOrderStep::class)
+        $orchestrator
+            ->addStep(CreateOrderStep::class)
             ->addStep(ProcessPaymentStep::class, retries: 3, sleep: 10)
             ->addStep(ConfirmOrderStep::class)
             ->execute($context);

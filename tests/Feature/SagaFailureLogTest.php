@@ -16,9 +16,8 @@ beforeEach(function () {
 
 it('does not create a failure log when all steps succeed', function () {
     Http::fake([
-        'external-service.example.com/pay' => Http::response([
-            'amount' => 'sub_123',
-        ], 200),
+        'external-service.example.com/pay' => Http::response(['amount' => 'sub_123'], 200),
+        'external-service.example.com/notify' => Http::response([], 200),
     ]);
 
     $this->postJson('/api/orders', [

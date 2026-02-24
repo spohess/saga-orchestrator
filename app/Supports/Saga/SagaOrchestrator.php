@@ -6,6 +6,7 @@ namespace App\Supports\Saga;
 
 use App\Models\SagaFailureLog;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 use Throwable;
@@ -33,12 +34,18 @@ final class SagaOrchestrator
 
         /** @var array<int, SagaStepInterface> $executedSteps */
         $executedSteps = [];
+        $collectedEvents = [];
         $failedStep = null;
 
         try {
             foreach ($this->steps as $stepConfig) {
                 $failedStep = Arr::get($stepConfig, 'step');
-                $executedSteps[] = $this->runWithRetries($stepConfig, $context);
+                $instance = $this->runWithRetries($stepConfig, $context);
+                $executedSteps[] = $instance;
+
+                if ($instance instanceof DispatchesEvent) {
+                    $collectedEvents[] = $instance->event($context);
+                }
             }
         } catch (Throwable $exception) {
             $compensatedSteps = [];
@@ -69,6 +76,10 @@ final class SagaOrchestrator
             ]);
 
             throw $exception;
+        }
+
+        foreach ($collectedEvents as $event) {
+            Event::dispatch($event);
         }
 
         return $context;

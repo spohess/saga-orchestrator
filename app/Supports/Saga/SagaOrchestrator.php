@@ -48,32 +48,7 @@ final class SagaOrchestrator
                 }
             }
         } catch (Throwable $exception) {
-            $compensatedSteps = [];
-            $compensationFailures = [];
-
-            foreach (array_reverse($executedSteps) as $executedStep) {
-                try {
-                    $executedStep->rollback($context);
-                    $compensatedSteps[] = $executedStep::class;
-                } catch (Throwable $rollbackException) {
-                    $compensationFailures[] = [
-                        'step' => $executedStep::class,
-                        'exception_class' => $rollbackException::class,
-                        'message' => $rollbackException->getMessage(),
-                    ];
-                }
-            }
-
-            SagaFailureLog::create([
-                'saga_id' => (string) Str::uuid(),
-                'failed_step' => $failedStep,
-                'exception_class' => $exception::class,
-                'exception_message' => $exception->getMessage(),
-                'executed_steps' => array_map(fn(SagaStepInterface $s): string => $s::class, $executedSteps),
-                'compensated_steps' => $compensatedSteps,
-                'compensation_failures' => $compensationFailures,
-                'context_snapshot' => $context->toArray(),
-            ]);
+            $this->compensate($executedSteps, $context, $failedStep, $exception);
 
             throw $exception;
         }
@@ -87,6 +62,44 @@ final class SagaOrchestrator
         }
 
         return $context;
+    }
+
+    /**
+     * @param array<int, SagaStepInterface> $executedSteps
+     * @param class-string<SagaStepInterface>|null $failedStep
+     */
+    private function compensate(
+        array $executedSteps,
+        SagaContext $context,
+        ?string $failedStep,
+        Throwable $exception,
+    ): void {
+        $compensatedSteps = [];
+        $compensationFailures = [];
+
+        foreach (array_reverse($executedSteps) as $executedStep) {
+            try {
+                $executedStep->rollback($context);
+                $compensatedSteps[] = $executedStep::class;
+            } catch (Throwable $rollbackException) {
+                $compensationFailures[] = [
+                    'step' => $executedStep::class,
+                    'exception_class' => $rollbackException::class,
+                    'message' => $rollbackException->getMessage(),
+                ];
+            }
+        }
+
+        SagaFailureLog::create([
+            'saga_id' => (string) Str::uuid(),
+            'failed_step' => $failedStep,
+            'exception_class' => $exception::class,
+            'exception_message' => $exception->getMessage(),
+            'executed_steps' => array_map(fn(SagaStepInterface $s): string => $s::class, $executedSteps),
+            'compensated_steps' => $compensatedSteps,
+            'compensation_failures' => $compensationFailures,
+            'context_snapshot' => $context->toArray(),
+        ]);
     }
 
     /** @param array{step: class-string<SagaStepInterface>, retries: int, sleep: int} $stepConfig */

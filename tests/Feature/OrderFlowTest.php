@@ -12,9 +12,8 @@ beforeEach(function () {
 
 it('creates a confirmed order when all steps succeed', function () {
     Http::fake([
-        'external-service.example.com/pay' => Http::response([
-            'amount' => 'sub_123',
-        ], 200),
+        'external-service.example.com/pay' => Http::response(['amount' => 'sub_123'], 200),
+        'external-service.example.com/notify' => Http::response([], 200),
     ]);
 
     $response = $this->postJson('/api/orders', [
@@ -40,6 +39,13 @@ it('creates a confirmed order when all steps succeed', function () {
         'customer_email' => 'john@example.com',
         'status' => 'confirmed',
     ]);
+
+    Http::assertSent(function (Request $request) {
+        return $request->url() === 'https://external-service.example.com/notify'
+            && $request['email'] === 'john@example.com'
+            && $request['subject'] === 'Order Confirmed'
+            && $request['message'] === 'Your order for Laravel Course has been confirmed.';
+    });
 });
 
 it('rolls back the order to failed when the external service fails', function () {

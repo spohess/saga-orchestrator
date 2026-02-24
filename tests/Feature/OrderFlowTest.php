@@ -39,6 +39,13 @@ it('creates a confirmed order when all steps succeed', function () {
         'customer_email' => 'john@example.com',
         'status' => 'confirmed',
     ]);
+
+    Http::assertSent(function (Request $request) {
+        return $request->url() === 'https://external-service.example.com/notify'
+            && $request['email'] === 'john@example.com'
+            && $request['subject'] === 'Order Confirmed'
+            && $request['message'] === 'Your order for Laravel Course has been confirmed.';
+    });
 });
 
 it('rolls back the order to failed when the external service fails', function () {

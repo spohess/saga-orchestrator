@@ -79,7 +79,11 @@ final class SagaOrchestrator
         }
 
         foreach ($collectedEvents as $event) {
-            Event::dispatch($event);
+            try {
+                Event::dispatch($event);
+            } catch (Throwable $e) {
+                report($e);
+            }
         }
 
         return $context;

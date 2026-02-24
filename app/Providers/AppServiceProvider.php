@@ -35,11 +35,6 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Configure default behaviors for production-ready applications.
      */
-    protected function registerEventListeners(): void
-    {
-        Event::listen(OrderConfirmedEvent::class, SendOrderConfirmedNotificationListener::class);
-    }
-
     protected function configureDefaults(): void
     {
         Date::use(CarbonImmutable::class);
@@ -58,5 +53,10 @@ class AppServiceProvider extends ServiceProvider
                 ->uncompromised()
             : null,
         );
+    }
+
+    protected function registerEventListeners(): void
+    {
+        Event::listen(OrderConfirmedEvent::class, SendOrderConfirmedNotificationListener::class);
     }
 }

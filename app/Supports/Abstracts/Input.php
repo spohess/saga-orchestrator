@@ -17,7 +17,7 @@ abstract class Input implements InputInterface
 
     public static function fromArray(array $data): self
     {
-        $instance = new static;
+        $instance = new static();
         $instance->data = $data;
 
         return $instance;

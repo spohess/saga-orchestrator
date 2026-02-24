@@ -8,13 +8,15 @@ use App\Supports\Abstracts\Input;
 use App\Supports\Interfaces\DTOInterface;
 use App\Supports\Interfaces\ServicesInterface;
 use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
 use RuntimeException;
 
 final class PaymentService implements ServicesInterface
 {
     public function execute(Input $input): DTOInterface
     {
-        /** @var PaymentInput $input */
+        throw_if(!$input instanceof PaymentInput, InvalidArgumentException::class);
+
         $response = Http::post('https://external-service.example.com/pay', [
             'order_id' => $input->get('order_id'),
             'customer_email' => $input->get('customer_email'),

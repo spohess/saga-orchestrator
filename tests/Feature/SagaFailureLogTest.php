@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Models\SagaFailureLog;
 use App\Supports\Saga\SagaContext;
 use App\Supports\Saga\SagaOrchestrator;
@@ -81,8 +83,7 @@ it('logs the context snapshot at time of failure', function () {
 });
 
 it('logs compensation failures when rollback itself fails', function () {
-    $failingRollbackStep = new class implements SagaStepInterface
-    {
+    $failingRollbackStep = new class implements SagaStepInterface {
         public function run(SagaContext $context): void {}
 
         public function rollback(SagaContext $context): void
@@ -91,9 +92,9 @@ it('logs compensation failures when rollback itself fails', function () {
         }
     };
 
-    $this->app->bind('step.failing-rollback', fn () => $failingRollbackStep);
+    $this->app->bind('step.failing-rollback', fn() => $failingRollbackStep);
 
-    $orchestrator = new SagaOrchestrator;
+    $orchestrator = new SagaOrchestrator();
     $orchestrator->addStep('step.failing-rollback');
     $orchestrator->addStep(FailingStep::class);
 
@@ -110,7 +111,7 @@ it('logs compensation failures when rollback itself fails', function () {
 });
 
 it('still throws the original exception after logging', function () {
-    $orchestrator = new SagaOrchestrator;
+    $orchestrator = new SagaOrchestrator();
     $orchestrator->addStep(FailingStep::class);
 
     $orchestrator->execute();
@@ -119,8 +120,7 @@ it('still throws the original exception after logging', function () {
 it('retries a step before triggering compensation', function () {
     $callCount = 0;
 
-    $flakeyStep = new class($callCount) implements SagaStepInterface
-    {
+    $flakeyStep = new class ($callCount) implements SagaStepInterface {
         public function __construct(private int &$callCount) {}
 
         public function run(SagaContext $context): void
@@ -137,9 +137,9 @@ it('retries a step before triggering compensation', function () {
         public function rollback(SagaContext $context): void {}
     };
 
-    $this->app->bind('step.flakey', fn () => $flakeyStep);
+    $this->app->bind('step.flakey', fn() => $flakeyStep);
 
-    $orchestrator = new SagaOrchestrator;
+    $orchestrator = new SagaOrchestrator();
     $context = $orchestrator
         ->addStep('step.flakey', retries: 3, sleep: 2)
         ->execute();
@@ -156,7 +156,7 @@ it('retries a step before triggering compensation', function () {
 });
 
 it('triggers compensation after all retries are exhausted', function () {
-    $orchestrator = new SagaOrchestrator;
+    $orchestrator = new SagaOrchestrator();
     $orchestrator->addStep(FailingStep::class, retries: 2, sleep: 1);
 
     try {
@@ -174,7 +174,7 @@ it('triggers compensation after all retries are exhausted', function () {
 });
 
 it('does not sleep on the first attempt', function () {
-    $orchestrator = new SagaOrchestrator;
+    $orchestrator = new SagaOrchestrator();
     $orchestrator->addStep(FailingStep::class, retries: 0, sleep: 5);
 
     try {

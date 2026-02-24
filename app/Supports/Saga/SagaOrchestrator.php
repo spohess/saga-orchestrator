@@ -29,7 +29,7 @@ final class SagaOrchestrator
 
     public function execute(?SagaContext $context = null): SagaContext
     {
-        $context ??= new SagaContext;
+        $context ??= new SagaContext();
 
         /** @var array<int, SagaStepInterface> $executedSteps */
         $executedSteps = [];
@@ -62,7 +62,7 @@ final class SagaOrchestrator
                 'failed_step' => $failedStep,
                 'exception_class' => $exception::class,
                 'exception_message' => $exception->getMessage(),
-                'executed_steps' => array_map(fn (SagaStepInterface $s): string => $s::class, $executedSteps),
+                'executed_steps' => array_map(fn(SagaStepInterface $s): string => $s::class, $executedSteps),
                 'compensated_steps' => $compensatedSteps,
                 'compensation_failures' => $compensationFailures,
                 'context_snapshot' => $context->toArray(),

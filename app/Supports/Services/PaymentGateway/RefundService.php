@@ -8,12 +8,14 @@ use App\Supports\Abstracts\Input;
 use App\Supports\Interfaces\DTOInterface;
 use App\Supports\Interfaces\ServicesInterface;
 use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
 
 final class RefundService implements ServicesInterface
 {
     public function execute(Input $input): DTOInterface
     {
-        /** @var RefundInput $input */
+        throw_if(!$input instanceof RefundInput, InvalidArgumentException::class);
+
         $response = Http::post('https://external-service.example.com/refund', [
             'amount' => $input->get('amount'),
         ]);

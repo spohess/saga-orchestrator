@@ -17,8 +17,11 @@ final class SagaOrchestrator
     private array $steps = [];
 
     /** @param class-string<SagaStepInterface> $step */
-    public function addStep(string $step, int $retries = 0, int $sleep = 0): self
-    {
+    public function addStep(
+        string $step,
+        int $retries = 0,
+        int $sleep = 0,
+    ): self {
         $this->steps[] = [
             'step' => $step,
             'retries' => $retries,
@@ -28,8 +31,9 @@ final class SagaOrchestrator
         return $this;
     }
 
-    public function execute(?SagaContext $context = null): SagaContext
-    {
+    public function execute(
+        ?SagaContext $context = null,
+    ): SagaContext {
         $context ??= new SagaContext();
 
         /** @var array<int, SagaStepInterface> $executedSteps */
@@ -103,8 +107,10 @@ final class SagaOrchestrator
     }
 
     /** @param array{step: class-string<SagaStepInterface>, retries: int, sleep: int} $stepConfig */
-    private function runWithRetries(array $stepConfig, SagaContext $context): SagaStepInterface
-    {
+    private function runWithRetries(
+        array $stepConfig,
+        SagaContext $context,
+    ): SagaStepInterface {
         $attempts = Arr::get($stepConfig, 'retries', 0) + 1;
 
         for ($attempt = 1; $attempt <= $attempts; $attempt++) {

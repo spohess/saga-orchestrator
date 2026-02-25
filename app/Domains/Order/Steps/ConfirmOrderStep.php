@@ -6,11 +6,11 @@ namespace App\Domains\Order\Steps;
 
 use App\Events\OrderConfirmedEvent;
 use App\Models\Order;
-use App\Supports\Saga\StepDispatchesEvent;
 use App\Supports\Saga\SagaContext;
 use App\Supports\Saga\SagaStepInterface;
+use App\Supports\Saga\StepDispatchesEventInterface;
 
-final class ConfirmOrderStep implements SagaStepInterface, StepDispatchesEvent
+final class ConfirmOrderStep implements SagaStepInterface, StepDispatchesEventInterface
 {
     public function run(SagaContext $context): void
     {

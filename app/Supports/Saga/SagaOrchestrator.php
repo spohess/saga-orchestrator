@@ -47,7 +47,7 @@ final class SagaOrchestrator
                 $instance = $this->runWithRetries($stepConfig, $context);
                 $executedSteps[] = $instance;
 
-                if ($instance instanceof StepDispatchesEvent) {
+                if ($instance instanceof StepDispatchesEventInterface) {
                     $collectedEvents[] = $instance->event($context);
                 }
             }

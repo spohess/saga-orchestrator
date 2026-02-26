@@ -16,6 +16,16 @@ final class SagaOrchestrator
     /** @var array<int, array{step: class-string<SagaStepInterface>, retries: int, sleep: int}> */
     private array $steps = [];
 
+    /** @var array<int, SagaStepInterface> */
+    private array $executedSteps = [];
+
+    /** @var array<int, mixed> */
+    private array $collectedEvents = [];
+
+    private ?string $failedStep = null;
+
+    private SagaContext $context;
+
     /** @param class-string<SagaStepInterface> $step */
     public function addStep(
         string $step,
@@ -34,56 +44,40 @@ final class SagaOrchestrator
     public function execute(
         ?SagaContext $context = null,
     ): SagaContext {
-        $context ??= new SagaContext();
-
-        /** @var array<int, SagaStepInterface> $executedSteps */
-        $executedSteps = [];
-        $collectedEvents = [];
-        $failedStep = null;
+        $this->context = $context ?? new SagaContext();
+        $this->executedSteps = [];
+        $this->collectedEvents = [];
+        $this->failedStep = null;
 
         try {
             foreach ($this->steps as $stepConfig) {
-                $failedStep = Arr::get($stepConfig, 'step');
-                $instance = $this->runWithRetries($stepConfig, $context);
-                $executedSteps[] = $instance;
+                $this->failedStep = Arr::get($stepConfig, 'step');
+                $instance = $this->runWithRetries($stepConfig);
+                $this->executedSteps[] = $instance;
 
                 if ($instance instanceof StepDispatchesEventInterface) {
-                    $collectedEvents[] = $instance->event($context);
+                    $this->collectedEvents[] = $instance->event($this->context);
                 }
             }
         } catch (Throwable $exception) {
-            $this->compensate($executedSteps, $context, $failedStep, $exception);
+            $this->compensate($exception);
 
             throw $exception;
         }
 
-        foreach ($collectedEvents as $event) {
-            try {
-                Event::dispatch($event);
-            } catch (Throwable $e) {
-                report($e);
-            }
-        }
+        $this->dispatchEvents();
 
-        return $context;
+        return $this->context;
     }
 
-    /**
-     * @param array<int, SagaStepInterface> $executedSteps
-     * @param class-string<SagaStepInterface>|null $failedStep
-     */
-    private function compensate(
-        array $executedSteps,
-        SagaContext $context,
-        ?string $failedStep,
-        Throwable $exception,
-    ): void {
+    private function compensate(Throwable $exception): void
+    {
         $compensatedSteps = [];
         $compensationFailures = [];
 
-        foreach (array_reverse($executedSteps) as $executedStep) {
+        foreach (array_reverse($this->executedSteps) as $executedStep) {
             try {
-                $executedStep->rollback($context);
+                $executedStep->rollback($this->context);
                 $compensatedSteps[] = $executedStep::class;
             } catch (Throwable $rollbackException) {
                 $compensationFailures[] = [
@@ -96,21 +90,19 @@ final class SagaOrchestrator
 
         SagaFailureLog::create([
             'saga_id' => (string) Str::uuid(),
-            'failed_step' => $failedStep,
+            'failed_step' => $this->failedStep,
             'exception_class' => $exception::class,
             'exception_message' => $exception->getMessage(),
-            'executed_steps' => array_map(fn(SagaStepInterface $s): string => $s::class, $executedSteps),
+            'executed_steps' => array_map(fn(SagaStepInterface $s): string => $s::class, $this->executedSteps),
             'compensated_steps' => $compensatedSteps,
             'compensation_failures' => $compensationFailures,
-            'context_snapshot' => $context->toArray(),
+            'context_snapshot' => $this->context->toArray(),
         ]);
     }
 
     /** @param array{step: class-string<SagaStepInterface>, retries: int, sleep: int} $stepConfig */
-    private function runWithRetries(
-        array $stepConfig,
-        SagaContext $context,
-    ): SagaStepInterface {
+    private function runWithRetries(array $stepConfig): SagaStepInterface
+    {
         $attempts = Arr::get($stepConfig, 'retries', 0) + 1;
 
         for ($attempt = 1; $attempt <= $attempts; $attempt++) {
@@ -120,7 +112,7 @@ final class SagaOrchestrator
                 }
 
                 $instance = app(Arr::get($stepConfig, 'step'));
-                $instance->run($context);
+                $instance->run($this->context);
 
                 return $instance;
             } catch (Throwable $exception) {
@@ -131,5 +123,16 @@ final class SagaOrchestrator
         }
 
         throw $exception;
+    }
+
+    private function dispatchEvents(): void
+    {
+        foreach ($this->collectedEvents as $event) {
+            try {
+                Event::dispatch($event);
+            } catch (Throwable $e) {
+                report($e);
+            }
+        }
     }
 }

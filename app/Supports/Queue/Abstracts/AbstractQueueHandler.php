@@ -4,42 +4,27 @@ declare(strict_types=1);
 
 namespace App\Supports\Queue\Abstracts;
 
+use App\Supports\Queue\QueueJob;
 use App\Supports\Queue\QueueMessage;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Throwable;
 
-abstract class AbstractQueueHandler implements ShouldQueue
+abstract class AbstractQueueHandler
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-    use SerializesModels;
-
-    public int $tries = 1;
-
-    public int $maxExceptions = 1;
-
     protected int $maxRetries = 3;
 
-    public function __construct(protected QueueMessage $message) {}
-
-    public function handle(): void
+    public function handle(QueueMessage $message): void
     {
         try {
-            $this->process($this->message);
+            $this->process($message);
         } catch (Throwable $e) {
-            $updated = $this->message
+            $updated = $message
                 ->withError($e->getMessage(), (string) $e->getCode(), $e->getTraceAsString())
                 ->withIncrementedRetry();
 
             if ($updated->getRetryCount() < $this->maxRetries) {
-                dispatch(new static($updated))->onQueue($this->message->getQueue() . '_retry');
+                dispatch(new QueueJob($updated))->onQueue($message->getQueue() . '_retry');
             } else {
-                dispatch(new static($updated))->onQueue($this->message->getQueue() . '_dlq');
+                dispatch(new QueueJob($updated))->onQueue($message->getQueue() . '_dlq');
                 $this->onDeadLetter($updated);
             }
         }

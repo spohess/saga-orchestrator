@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Supports\Queue\Abstracts\AbstractQueueHandler;
+use App\Supports\Queue\QueueJob;
 use App\Supports\Queue\QueueMessage;
 use Illuminate\Support\Facades\Bus;
 
@@ -17,7 +18,7 @@ it('processes the message successfully without dispatching retries', function ()
         data: ['order_id' => 1],
     );
 
-    $handler = new class ($message) extends AbstractQueueHandler {
+    $handler = new class extends AbstractQueueHandler {
         public bool $processed = false;
 
         protected function process(QueueMessage $message): void
@@ -26,39 +27,36 @@ it('processes the message successfully without dispatching retries', function ()
         }
     };
 
-    $handler->handle();
+    $handler->handle($message);
 
     expect($handler->processed)->toBeTrue();
     Bus::assertNothingDispatched();
 });
 
-it('dispatches to retry queue when process fails and retries remain', function () {
+it('dispatches QueueJob to retry queue when process fails and retries remain', function () {
     $message = QueueMessage::create(
         source: 'test-service',
         queue: 'orders',
         data: ['order_id' => 1],
     );
 
-    $handlerClass = get_class(new class ($message) extends AbstractQueueHandler {
+    $handler = new class extends AbstractQueueHandler {
         protected int $maxRetries = 3;
 
         protected function process(QueueMessage $message): void
         {
             throw new RuntimeException('Processing failed', 500);
         }
-    });
+    };
 
-    Bus::fake();
+    $handler->handle($message);
 
-    $handler = new $handlerClass($message);
-    $handler->handle();
-
-    Bus::assertDispatched($handlerClass, function ($job) {
+    Bus::assertDispatched(QueueJob::class, function (QueueJob $job) {
         return $job->queue === 'orders_retry';
     });
 });
 
-it('dispatches to dlq queue when retries are exhausted', function () {
+it('dispatches QueueJob to dlq queue when retries are exhausted', function () {
     $message = QueueMessage::create(
         source: 'test-service',
         queue: 'orders',
@@ -69,21 +67,18 @@ it('dispatches to dlq queue when retries are exhausted', function () {
         ->withIncrementedRetry()
         ->withIncrementedRetry();
 
-    $handlerClass = get_class(new class ($message) extends AbstractQueueHandler {
+    $handler = new class extends AbstractQueueHandler {
         protected int $maxRetries = 3;
 
         protected function process(QueueMessage $message): void
         {
             throw new RuntimeException('Still failing', 500);
         }
-    });
+    };
 
-    Bus::fake();
+    $handler->handle($retriedMessage);
 
-    $handler = new $handlerClass($retriedMessage);
-    $handler->handle();
-
-    Bus::assertDispatched($handlerClass, function ($job) {
+    Bus::assertDispatched(QueueJob::class, function (QueueJob $job) {
         return $job->queue === 'orders_dlq';
     });
 });
@@ -99,9 +94,7 @@ it('calls onDeadLetter hook when message reaches dlq', function () {
         ->withIncrementedRetry()
         ->withIncrementedRetry();
 
-    $deadLetterCalled = false;
-
-    $handlerClass = get_class(new class ($message) extends AbstractQueueHandler {
+    $handlerClass = get_class(new class extends AbstractQueueHandler {
         protected int $maxRetries = 3;
 
         public static bool $deadLetterCalled = false;
@@ -117,25 +110,8 @@ it('calls onDeadLetter hook when message reaches dlq', function () {
         }
     });
 
-    Bus::fake();
-
-    $handler = new $handlerClass($retriedMessage);
-    $handler->handle();
+    $handler = new $handlerClass();
+    $handler->handle($retriedMessage);
 
     expect($handlerClass::$deadLetterCalled)->toBeTrue();
-});
-
-it('sets tries and maxExceptions to 1 to prevent laravel auto-retry', function () {
-    $message = QueueMessage::create(
-        source: 'test-service',
-        queue: 'orders',
-        data: [],
-    );
-
-    $handler = new class ($message) extends AbstractQueueHandler {
-        protected function process(QueueMessage $message): void {}
-    };
-
-    expect($handler->tries)->toBe(1)
-        ->and($handler->maxExceptions)->toBe(1);
 });

@@ -17,8 +17,13 @@ abstract class AbstractQueueHandler
         try {
             $this->process($message);
         } catch (Throwable $e) {
+            $trace = implode("\n", array_map(
+                fn($f) => sprintf('%s:%s', $f['file'] ?? '[internal]', $f['line'] ?? '?'),
+                array_slice($e->getTrace(), 0, 5),
+            ));
+
             $updated = $message
-                ->withError($e->getMessage(), (string) $e->getCode(), $e->getTraceAsString())
+                ->withError($e->getMessage(), (string) $e->getCode(), $trace)
                 ->withIncrementedRetry();
 
             if ($updated->getRetryCount() < $this->maxRetries) {

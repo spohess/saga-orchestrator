@@ -27,7 +27,11 @@ interface QueueMessageInterface
 
     public function getRetryCount(): int;
 
-    public function withError(string $message, string $code, ?string $trace): static;
+    public function withError(
+        string $message,
+        string $code,
+        ?string $trace,
+    ): static;
 
     public function withIncrementedRetry(): static;
 

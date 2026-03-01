@@ -14,8 +14,11 @@ final class QueueProducer
      * @param array<string, mixed> $data
      * @param array<string, mixed> $metadata
      */
-    public function publish(string $source, array $data, array $metadata = []): QueueMessage
-    {
+    public function publish(
+        string $source,
+        array $data,
+        array $metadata = [],
+    ): QueueMessage {
         $message = QueueMessage::create(
             source: $source,
             queue: $this->queue,

@@ -12,8 +12,10 @@ final class SagaContext
     /** @var array<string, mixed> */
     private array $data = [];
 
-    public function set(string $key, mixed $value): void
-    {
+    public function set(
+        string $key,
+        mixed $value,
+    ): void {
         Arr::set($this->data, $key, $value);
     }
 
@@ -25,8 +27,10 @@ final class SagaContext
         }
     }
 
-    public function get(string $key, mixed $default = null): mixed
-    {
+    public function get(
+        string $key,
+        mixed $default = null,
+    ): mixed {
         return Arr::get($this->data, $key, $default);
     }
 

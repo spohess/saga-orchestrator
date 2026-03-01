@@ -96,8 +96,11 @@ final class QueueMessage implements QueueMessageInterface
         return $this->retryCount;
     }
 
-    public function withError(string $message, string $code, ?string $trace): static
-    {
+    public function withError(
+        string $message,
+        string $code,
+        ?string $trace,
+    ): static {
         return new static(
             messageId: $this->messageId,
             timestamp: $this->timestamp,

@@ -21,7 +21,7 @@ final class QueueRouter
     /** @return class-string<AbstractQueueHandler> */
     public function resolve(string $queue): string
     {
-        if (! isset($this->routes[$queue])) {
+        if (!isset($this->routes[$queue])) {
             throw new InvalidArgumentException("No handler registered for queue [{$queue}].");
         }
 

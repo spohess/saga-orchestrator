@@ -15,7 +15,10 @@ final class NotificationService implements ServicesInterface
 {
     public function execute(Input $input): DTOInterface
     {
-        throw_if(! $input instanceof NotificationInput, InvalidArgumentException::class);
+        throw_if(
+            !$input instanceof NotificationInput,
+            InvalidArgumentException::class,
+        );
 
         try {
             $response = Http::timeout(5)->retry(2, 100)->post('https://external-service.example.com/notify', [

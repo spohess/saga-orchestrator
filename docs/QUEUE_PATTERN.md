@@ -200,3 +200,36 @@ Producer → QueueJob(orders) → QueueRouter → Handler.handle()
 | `metadata` | Dados auxiliares (prioridade, correlation_id, etc.) |
 | `error` | Último erro registrado (`null` quando sem erro) |
 | `retry_count` | Número de tentativas realizadas |
+
+## Reprocessamento de Dead Letter Queue
+
+Mensagens que esgotam todas as tentativas de retry são movidas para a fila `{queue}_dlq`. Após corrigir o problema que causou as falhas, é possível reprocessar todas as mensagens da DLQ usando o command artisan:
+
+```bash
+php artisan queue:reprocess --queue=notifications_dlq
+```
+
+### O que o command faz
+
+1. Consome todos os `QueueJob` da fila DLQ via `Queue::pop()`
+2. Para cada job, extrai a `QueueMessage` do payload
+3. Reseta `error` e `retry_count` da mensagem (via `withReset()`)
+4. Despacha um novo `QueueJob` na fila original (`$message->getQueue()`)
+5. Deleta o job da DLQ
+6. Exibe a quantidade de jobs reprocessados
+
+### Validações
+
+- A opção `--queue` é obrigatória
+- O nome da fila deve terminar com `_dlq` — não é possível reprocessar filas normais ou de retry
+- Se a fila estiver vazia, exibe mensagem informativa
+
+### Exemplo de uso
+
+```bash
+# Reprocessar mensagens da DLQ de notificações
+php artisan queue:reprocess --queue=notifications_dlq
+
+# Reprocessar mensagens da DLQ de pedidos
+php artisan queue:reprocess --queue=orders_dlq
+```

@@ -130,6 +130,21 @@ final class QueueMessage implements QueueMessageInterface
         );
     }
 
+    public function withReset(): static
+    {
+        return new static(
+            messageId: $this->messageId,
+            timestamp: $this->timestamp,
+            version: $this->version,
+            source: $this->source,
+            queue: $this->queue,
+            data: $this->data,
+            metadata: $this->metadata,
+            error: null,
+            retryCount: 0,
+        );
+    }
+
     /** @return array<string, mixed> */
     public function toArray(): array
     {

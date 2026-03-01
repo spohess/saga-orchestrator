@@ -31,6 +31,8 @@ interface QueueMessageInterface
 
     public function withIncrementedRetry(): static;
 
+    public function withReset(): static;
+
     /** @return array<string, mixed> */
     public function toArray(): array;
 
